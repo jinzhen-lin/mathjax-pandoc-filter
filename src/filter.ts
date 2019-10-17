@@ -60,17 +60,30 @@ async function tex2svg(
   return mjAPI.typeset(opts)
 }
 
-function wrap(meta: pandoc.Meta | undefined, s: pandoc.Inline) {
+function wrap_inline_math(tex: string, s: pandoc.Inline) {
   return [
-    pandoc.RawInline(
-      'html',
-      getConfigOption(meta, 'centerDisplayMath')
-        ? '<p style="text-align: center">'
-        : '<p>',
-    ),
-    s,
-    pandoc.RawInline('html', '</p>'),
-  ]
+      pandoc.RawInline("html", '<span class="MathJax_SVG" >'),
+      pandoc.RawInline("html", '<script type="math/tex">'),
+      pandoc.RawInline("html", tex),
+      pandoc.RawInline("html", '</script>'),
+      s,
+      pandoc.RawInline("html", '</span>'),
+  ];
+}
+
+function warp_math_block(tex: string, s: pandoc.Inline) {
+  return [
+      pandoc.RawInline("html", '<div class="md-math-block">'),
+      pandoc.RawInline("html", '<div class="MathJax_SVG_Display" style="text-align: center;">'),
+      pandoc.RawInline("html", '<span class="MathJax_SVG" >'),
+      pandoc.RawInline("html", '<script type="math/tex">'),
+      pandoc.RawInline("html", tex),
+      pandoc.RawInline("html", '</script>'),
+      s,
+      pandoc.RawInline("html", '</span>'),
+      pandoc.RawInline("html", '</div>'),
+      pandoc.RawInline("html", '</div>')
+  ];
 }
 
 function getConfigOption(meta: pandoc.Meta | undefined, optionName: string) {
@@ -96,7 +109,7 @@ const action: pandoc.FilterAction = async function(
     const { svg } = await tex2svg(tex, inline, meta)
     if (!getConfigOption(meta, 'noInlineSVG')) {
       const svgel = pandoc.RawInline('html', svg)
-      return inline ? svgel : wrap(meta, svgel)
+      return inline ? wrap_inline_math(tex, svgel): warp_math_block(tex, svgel);
     } else {
       const src =
         'data:image/svg+xml;charset=utf-8;base64,' +
@@ -114,7 +127,7 @@ const action: pandoc.FilterAction = async function(
         [pandoc.Str(tex)],
         [src, ''],
       )
-      return inline ? image : wrap(meta, image)
+      return inline ? wrap_inline_math(tex, image): warp_math_block(tex, image);
     }
   } else {
     return undefined
